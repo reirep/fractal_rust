@@ -1,0 +1,23 @@
+[[package]]
+name = "bmp"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "byteorder 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "byteorder"
+version = "1.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "fractal"
+version = "0.1.0"
+dependencies = [
+ "bmp 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[metadata]
+"checksum bmp 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ef8ceb6f83a7c5dde38e524a66b76a92cc02abb63880a2d9d067cdf8b50a76da"
+"checksum byteorder 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "73b5bdfe7ee3ad0b99c9801d58807a9dbc9e09196365b0203853b99889ab3c87"
