@@ -1,14 +1,20 @@
+extern crate multiqueue ;
+
 mod fractal;
 
 use std::env;
-use std::sync::{Mutex, Arc};
-use fractal::{Fractal};
+use std::thread;
 use std::io::{BufReader,BufRead};
 use std::fs::File;
 use std::mem::drop;
+use std::sync::{Arc,Mutex};
+use std::sync::mpsc::TryRecvError;
 //use std::io;//will be use for the stdin handling
-use std::thread;
-use std::cell::RefCell;
+
+use multiqueue::{MPMCSender, MPMCReceiver};
+
+use fractal::{Fractal};
+
 
 
 extern crate bmp;
@@ -20,23 +26,57 @@ fn main() {
     // ./bin [--maxthreads x] [-d] [-o outputfolder] <[-]|[inFiles]> outfile
     let args : Vec<String> = env::args().collect();
 
-    //global vars
+    //Global vars
     let (all_out, nbr_threads, out_folder, out_file, in_files) = parse_args(args);
-    print!("All out :{:?}\nNumber of thread: {:?}\nOutput folder: {:?}\nOutput file: {:?}\nInput files{:?}\n", all_out, nbr_threads, out_folder, out_file, in_files);
+                print!("All out :{:?}\nNumber of thread: {:?}\nOutput folder: {:?}\nOutput file: {:?}\nInput files{:?}\n", all_out, nbr_threads, out_folder, out_file, in_files);
 
-    let mut buffer1: Buffer = Buffer::new(SIZE_BUFF, 1);
-    let mut buffer2: Buffer = Buffer::new(SIZE_BUFF, nbr_threads);
+    //The two working queue
+    let (send1, recv1) = multiqueue::mpmc_queue(SIZE_BUFF as u64);//first buffer
+    let (send2, recv2) = multiqueue::mpmc_queue(SIZE_BUFF as u64);//seccond buffer
 
-    thread::spawn(move || {
-        writer(&mut buffer2, all_out, out_folder);
+    //The handles to join all the worker threads
+    let mut handles = vec![];
+
+    //Starting the writer thread
+    let write = thread::spawn(move || {
+        writer(recv2, all_out, out_folder);
     });
 
-    for _x in 0..nbr_threads {
-        thread::spawn(move || {
-            worker(&mut buffer1, &mut buffer2);
-        });
+    //Starting all the worker threads
+    for x in 0..nbr_threads {
+        let cur_recv = recv1.clone();
+        let cur_send = send2.clone();
+
+        handles.push(thread::spawn(move || {
+            worker(cur_recv, cur_send);
+        }));
     }
 
+    //Starting the reader thread
+    let read = thread::spawn( move || {
+        reader(send1, in_files);
+    });
+
+    //Dropping the stream to allow an inteligent closing of them
+    drop(send2);
+    drop(recv1);
+
+    //Joining the reader
+    if read.join().is_ok() {
+        println!("Reader has finished his job!");
+    }
+
+    //Joining all the workers
+    for h in handles {
+        if h.join().is_ok() {
+            println!("A worker thread has just stopped.");
+        }
+    }
+
+    //Joining the writer
+    if write.join().is_ok() {
+        println!("Writer has finished his job");
+    }
 }
 
 fn parse_args(args: Vec<String>)  -> (bool, u8, String, String, Vec<String>)
@@ -87,64 +127,7 @@ fn parse_args(args: Vec<String>)  -> (bool, u8, String, String, Vec<String>)
     (all_out, nbr_threads, out_folder, out_file, in_files)
 }
 
-#[derive(Debug)]
-struct Buffer {
-    fractales: Mutex<Vec<Fractal>>,
-    max: usize,
-    previous_finish: Mutex<u8>,
-    previous_total: u8,
-}
-
-unsafe impl Send for Buffer {}
-unsafe impl Sync for Buffer {}
-
-impl Buffer {
-    fn new(max: usize, previous_total: u8) -> Buffer
-    {
-        Buffer {
-            fractales : Mutex::new(Vec::new()),
-            max,
-            previous_finish : Mutex::new(0), 
-            previous_total,
-        }
-    }
-
-    fn input_end(&mut self)
-    {
-        let mut nbr = self.previous_finish.lock().unwrap();
-        *nbr += 1
-    }
-
-    fn is_input_finished(&self) -> bool
-    {
-        let buffer = self.fractales.lock().unwrap();
-        let finished = self.previous_finish.lock().unwrap();
-        buffer.len() == 0 && *finished == self.previous_total
-    }
-
-    fn insert(&mut self, f: Fractal)
-    {
-        let mut buffer = self.fractales.lock().unwrap();
-        while buffer.len() >= self.max {
-            drop(buffer);
-            buffer = self.fractales.lock().unwrap();
-        }
-        buffer.push(f);
-    }
-
-    fn extract(&mut self) -> Fractal
-    {
-        let mut buffer = self.fractales.lock().unwrap();
-        while buffer.len() == 0 {
-            drop(buffer);
-            buffer = self.fractales.lock().unwrap();
-        }
-        buffer.pop().unwrap()
-    }
-
-}
-
-fn reader(buffer: &mut Buffer, in_files: Vec<String>)
+fn reader(send: MPMCSender<Fractal>, in_files: Vec<String>)
 {
     let mut stdin = false;
     for file in in_files {
@@ -156,12 +139,14 @@ fn reader(buffer: &mut Buffer, in_files: Vec<String>)
 
         for line in BufReader::new(f).lines()
         {
-            //TODO: block the read her if the buffer is full
             let split = match line{
                 Err(x) => panic!(x),
                 Ok(x) => x,
             };
-            let param = split.split(" \n").collect::<Vec<_>>();
+            if split.len() <= 1 || split.chars().next().unwrap() == '#' || split.chars().next().unwrap() == '\n' {
+                continue;
+            }
+            let param = split.split(" ").collect::<Vec<_>>();
             let f: Fractal = Fractal::new(
                 param[0].to_string(),
                 param[1].parse::<u32>().unwrap(),
@@ -169,32 +154,54 @@ fn reader(buffer: &mut Buffer, in_files: Vec<String>)
                 param[3].parse::<f32>().unwrap(),
                 param[4].parse::<f32>().unwrap(),
                 );
-            buffer.insert(f);
+
+            let mut ok : bool = false;
+            while !ok{
+                let s = f.clone();
+                ok = send.try_send(s).is_ok();
+            }
         }
     }
 
     //TODO stdin management here
     //io::stdin().lock().lines()
 
-    buffer.input_end();
+    send.unsubscribe();
 }
 
-fn worker (input: &mut Buffer, output: &mut Buffer)
+fn worker (input: MPMCReceiver<Fractal>, output: MPMCSender<Fractal>)
 {
-    while input.is_input_finished() {
-        let mut f = input.extract();
-        f.set_all_pixels();
-        output.insert(f); 
+    loop {
+        match input.recv() {
+            Ok(mut val) => {
+                val.set_all_pixels();
+
+                let mut ok : bool = false;
+                while !ok{
+                    let s = val.clone();
+                    ok = output.try_send(s).is_ok();
+                }
+            },
+            Err(x) => break,
+        }
     }
-    output.input_end();
+
+    output.unsubscribe();
+    input.unsubscribe();
 }
 
-fn writer(input: &mut Buffer, all_write: bool, folder: String)
+fn writer(input: MPMCReceiver<Fractal>, all_write: bool, folder: String)
 {
-   while input.is_input_finished() {
-       //TODO add selective print
-       let f = input.extract();
-       let name = f.name.clone();//TODO add folder feature
-       f.save(name);
-   } 
+   loop {
+        match input.recv() {
+            Ok(val) => {
+                //TODO add selective print and folder
+                let name = val.name.clone();
+                eprintln!("Writing fractal: {} ",name);
+                val.save(name);
+            }
+            Err(x) => break,
+        }
+   }
+   input.unsubscribe();
 }

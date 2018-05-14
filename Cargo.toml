@@ -5,3 +5,4 @@ authors = ["pierre"]
 
 [dependencies]
 bmp = "*"
+multiqueue = "0.3.2"

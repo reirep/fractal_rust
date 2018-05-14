@@ -1,6 +1,6 @@
 use bmp::{Image,Pixel};
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Fractal {
     pub name: String,
     width: u32,
