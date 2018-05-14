@@ -27,30 +27,34 @@ impl Fractal {
     {
         for x in 0..self.width {
             for y in 0..self.height {
-                let val = (self.julia_pixel(x,y) * 256.0) as u8;
-                self.image.set_pixel(x,y,Pixel::new(val,val,val));
+                let val = self.julia_pixel(x,y);
+                self.image.set_pixel(x,y,Pixel::new(
+                        (val << 3) as u8,
+                        (val << 5) as u8,
+                        (val << 4) as u8
+                    ));
             }
         } 
     }
 
     //the algo used here is the julia fractal
     //the return value is a proportion on zero, we have to multiply it by our color space
-    fn julia_pixel(&self, x: u32, y:u32) -> f32
+    fn julia_pixel(&self, x: u32, y:u32) -> i32
     {
-        let mut iter = 1000;
-        let max_iter = 1000.0;
+        let mut zx = 3.0 * (x as f32 - 0.5 * self.width as f32) / (self.width as f32);
+        let mut zy = 2.0 * (y as f32 - 0.5 * self.height as f32) / (self.height as f32);
 
-        let mut zx = x as f32 / self.width as f32 * 3.5 - 2.5;
-        let mut zy = y as f32 / self.height as f32 * 2.0 - 1.0;
+        let mut iter = 256;
+        let max_iter = 256;
 
-        while zx*zx + zy*zy < 4.0 && iter > 0 {
-            let xtemp = zx*zx -zy*zy;
+        while zx*zx + zy*zy < 4.0 && iter > 1 {
+            let xtemp = zx*zx - zy*zy + self.cx;
             zy = 2.0*zx*zy + self.cy;
-            zx = xtemp + self.cx;
+            zx = xtemp;
 
             iter -= 1;
         }
-        iter as f32/max_iter
+        iter
     }
 
     pub fn save(&self, path: String)
