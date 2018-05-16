@@ -36,4 +36,4 @@ fractal 800 800 0.25 -1.4
 Currently, only [me](github.com/reirep).
 
 ## License
-This project is licensed under the terms of the GPL license.
+See the [License file](LICENSE.md).
