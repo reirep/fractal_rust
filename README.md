@@ -8,7 +8,7 @@ It contains severals mistakes, feel free to push a better version or open an iss
 ## Input fomat
 If input fomat is the following:
 ```
-	<name> <width> <height> <param1> <param1>
+<name> <width> <height> <param1> <param1>
 ```
 
 - name: The name of the fractal
@@ -20,7 +20,7 @@ If input fomat is the following:
 
 Example:
 ```
-	fractal 800 800 0.25 -1.4
+fractal 800 800 0.25 -1.4
 ```
 
 
