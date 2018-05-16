@@ -7,8 +7,6 @@ use std::thread;
 use std::io::{BufReader,BufRead};
 use std::fs::File;
 use std::mem::drop;
-use std::sync::{Arc,Mutex};
-use std::sync::mpsc::TryRecvError;
 //use std::io;//will be use for the stdin handling
 
 use multiqueue::{MPMCSender, MPMCReceiver};
@@ -39,11 +37,11 @@ fn main() {
 
     //Starting the writer thread
     let write = thread::spawn(move || {
-        writer(recv2, all_out, out_folder);
+        writer(recv2, all_out, out_folder, out_file);
     });
 
     //Starting all the worker threads
-    for x in 0..nbr_threads {
+    for _ in 0..nbr_threads {
         let cur_recv = recv1.clone();
         let cur_send = send2.clone();
 
@@ -182,7 +180,7 @@ fn worker (input: MPMCReceiver<Fractal>, output: MPMCSender<Fractal>)
                     ok = output.try_send(s).is_ok();
                 }
             },
-            Err(x) => break,
+            Err(_) => break,
         }
     }
 
@@ -190,18 +188,44 @@ fn worker (input: MPMCReceiver<Fractal>, output: MPMCSender<Fractal>)
     input.unsubscribe();
 }
 
-fn writer(input: MPMCReceiver<Fractal>, all_write: bool, folder: String)
+fn writer(input: MPMCReceiver<Fractal>, all_write: bool, folder: String, final_out: String)
 {
-   loop {
+    let mut bigger: Option<Fractal> = None;
+    let mut avg: f64 = 0.0;
+
+    loop {
         match input.recv() {
             Ok(val) => {
-                //TODO add selective print and folder
-                let name = val.name.clone();
-                eprintln!("Writing fractal: {} ",name);
-                val.save(name);
+                if let None = bigger {//saving the bigger one to save it at the end
+                    bigger = Some(val.clone());
+                    avg = val.get_avg_pixel();
+                }
+                else {
+                    let tmp_avg = val.get_avg_pixel();
+                    if tmp_avg > avg {
+                        bigger = Some(val.clone());
+                        avg = tmp_avg;
+                    }
+                }
+
+                if all_write {
+                    let mut out = folder.clone();
+                    out.push_str("/");
+                    out.push_str(&val.name.clone());
+                    val.save(out);
+                }
             }
-            Err(x) => break,
+            Err(_) => break,
         }
-   }
-   input.unsubscribe();
+    }
+
+    let big = bigger.unwrap();
+
+    let mut out = folder.clone();
+    out.push_str("/");
+    out.push_str(&final_out);
+    
+    big.save(out);
+
+    input.unsubscribe();
 }

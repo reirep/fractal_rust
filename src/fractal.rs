@@ -37,6 +37,20 @@ impl Fractal {
         } 
     }
 
+    pub fn get_avg_pixel(&self) -> f64
+    {
+        let mut agreg: u64 = 0;
+        for x in 0..self.width {
+            for y in 0..self.height {
+                let pix: Pixel = self.image.get_pixel(x,y);
+                agreg += pix.r as u64;
+                agreg += pix.g as u64;
+                agreg += pix.b as u64;
+            }
+        }
+        agreg as f64 / (3.0 * self.width as f64 * self.height as f64)
+    }
+
     //the algo used here is the julia fractal
     //the return value is a proportion on zero, we have to multiply it by our color space
     fn julia_pixel(&self, x: u32, y:u32) -> i32
@@ -45,7 +59,6 @@ impl Fractal {
         let mut zy = 2.0 * (y as f32 - 0.5 * self.height as f32) / (self.height as f32);
 
         let mut iter = 256;
-        let max_iter = 256;
 
         while zx*zx + zy*zy < 4.0 && iter > 1 {
             let xtemp = zx*zx - zy*zy + self.cx;
@@ -59,6 +72,6 @@ impl Fractal {
 
     pub fn save(&self, path: String)
     {
-        self.image.save(path);
+        let _ = self.image.save(path);
     }
 }
