@@ -1,5 +1,5 @@
 # Rust fractal generator
-This program allow the mass-computing of fractal base on the [julia set](https://en.wikipedia.org/wiki/Julia_set). 
+This program allow the mass-computing of fractal based on the simple version of the [julia set](https://en.wikipedia.org/wiki/Julia_set). 
 
 
 This program was implemented as an experiment in rust to allow me to train myself on the language. 
