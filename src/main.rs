@@ -106,7 +106,6 @@ fn parse_args(args: Vec<String>)  -> (bool, u8, String, String, Vec<String>)
             index_args += 2;
         },
         f => {
-            eprint!("{:?}", f);
             in_files.push(f.to_string());
             index_args += 1;
         },
