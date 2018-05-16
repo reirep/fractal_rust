@@ -19,7 +19,7 @@ extern crate bmp;
 
 fn main() {
     
-    let 'static SIZE_BUFF: usize = 25;
+    let size_buff: usize = 25;
 
     // ./bin [--maxthreads x] [-d] [-o outputfolder] <[-]|[inFiles]> outfile
     let args : Vec<String> = env::args().collect();
@@ -29,8 +29,8 @@ fn main() {
                 print!("All out :{:?}\nNumber of thread: {:?}\nOutput folder: {:?}\nOutput file: {:?}\nInput files{:?}\n", all_out, nbr_threads, out_folder, out_file, in_files);
 
     //The two working queue
-    let (send1, recv1) = multiqueue::mpmc_queue(SIZE_BUFF as u64);//first buffer
-    let (send2, recv2) = multiqueue::mpmc_queue(SIZE_BUFF as u64);//seccond buffer
+    let (send1, recv1) = multiqueue::mpmc_queue(size_buff as u64);//first buffer
+    let (send2, recv2) = multiqueue::mpmc_queue(size_buff as u64);//seccond buffer
 
     //The handles to join all the worker threads
     let mut handles = vec![];
@@ -92,28 +92,30 @@ fn parse_args(args: Vec<String>)  -> (bool, u8, String, String, Vec<String>)
     let mut index_args = 1;
 
     while index_args != args.len() {
-        if args[index_args] == "-d" {
+       match &args[index_args][..] {
+        "-d" => {
             all_out = true;
-            index_args+=1;
-        }
-        else if args[index_args] == "--maxthreads" {
+            index_args += 1;
+        },
+        "--maxthreads" => {
             nbr_threads = args[index_args + 1].parse::<u8>().unwrap();
-            index_args+=2
-        }
-        else if args[index_args] == "-o" {
+            index_args+= 2;
+        },
+        "-o" => {
             out_folder = args[index_args + 1].clone();
-            index_args+=2;
-        }
-        else if index_args == args.len() -1 {
-            out_file = args[index_args].clone();
-            index_args+=1;
-        }
-        else {
-            in_files.push(args[index_args].clone());
-            index_args+=1;
-        }
-        
+            index_args += 2;
+        },
+        f => {
+            eprint!("{:?}", f);
+            in_files.push(f.to_string());
+            index_args += 1;
+        },
+       }; 
     }
+    out_file = match in_files.pop() {
+        None => panic!("No enough input / output given !\n"),
+        Some(f) => f,
+    };
 
     if out_file == "" {
         panic!("No output file given !");
