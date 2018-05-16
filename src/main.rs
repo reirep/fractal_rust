@@ -4,10 +4,10 @@ mod fractal;
 
 use std::env;
 use std::thread;
+use std::io;
 use std::io::{BufReader,BufRead};
 use std::fs::File;
 use std::mem::drop;
-//use std::io;//will be use for the stdin handling
 
 use multiqueue::{MPMCSender, MPMCReceiver};
 
@@ -19,7 +19,7 @@ extern crate bmp;
 
 fn main() {
     
-    let SIZE_BUFF: usize = 25;
+    let 'static SIZE_BUFF: usize = 25;
 
     // ./bin [--maxthreads x] [-d] [-o outputfolder] <[-]|[inFiles]> outfile
     let args : Vec<String> = env::args().collect();
@@ -141,30 +141,57 @@ fn reader(send: MPMCSender<Fractal>, in_files: Vec<String>)
                 Err(x) => panic!(x),
                 Ok(x) => x,
             };
-            if split.len() <= 1 || split.chars().next().unwrap() == '#' || split.chars().next().unwrap() == '\n' {
-                continue;
-            }
-            let param = split.split(" ").collect::<Vec<_>>();
-            let f: Fractal = Fractal::new(
+
+            match get_fractal(split){
+                None => continue,
+                Some(f) => {
+                    let mut ok : bool = false;
+                    while !ok{
+                        let s = f.clone();
+                        ok = send.try_send(s).is_ok();
+                    }
+                },
+            };
+            
+        }
+    }
+
+    if stdin {
+        let in_std = io::stdin();
+        for line in in_std.lock().lines() {
+            match get_fractal(line.unwrap()){
+                None => continue,
+                Some(f) => {
+                    let mut ok : bool = false;
+                    while !ok {
+                        let s = f.clone();
+                        ok = send.try_send(s).is_ok();
+                    }
+                }, 
+            };
+        } 
+    }
+    
+    send.unsubscribe();
+}
+
+fn get_fractal(line: String) -> Option<Fractal>
+{
+    if line.len() <= 1 {
+        return None
+    }
+    if line.chars().next().unwrap() == '#' || line.chars().next().unwrap() == '\n' {
+        return None
+    }
+    let param = line.split(" ").collect::<Vec<_>>();
+    let f: Fractal = Fractal::new(
                 param[0].to_string(),
                 param[1].parse::<u32>().unwrap(),
                 param[2].parse::<u32>().unwrap(),
                 param[3].parse::<f32>().unwrap(),
-                param[4].parse::<f32>().unwrap(),
-                );
-
-            let mut ok : bool = false;
-            while !ok{
-                let s = f.clone();
-                ok = send.try_send(s).is_ok();
-            }
-        }
-    }
-
-    //TODO stdin management here
-    //io::stdin().lock().lines()
-
-    send.unsubscribe();
+                param[4].parse::<f32>().unwrap(), 
+        );
+    Some(f)
 }
 
 fn worker (input: MPMCReceiver<Fractal>, output: MPMCSender<Fractal>)
@@ -218,14 +245,14 @@ fn writer(input: MPMCReceiver<Fractal>, all_write: bool, folder: String, final_o
             Err(_) => break,
         }
     }
-
-    let big = bigger.unwrap();
-
-    let mut out = folder.clone();
-    out.push_str("/");
-    out.push_str(&final_out);
     
-    big.save(out);
+    if let Some(big) = bigger {
+        let mut out = folder.clone();
+        out.push_str("/");
+        out.push_str(&final_out);
+    
+        big.save(out);
+    }
 
     input.unsubscribe();
 }
