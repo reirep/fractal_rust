@@ -26,7 +26,7 @@ fn main() {
 
     //Global vars
     let (all_out, nbr_threads, out_folder, out_file, in_files) = parse_args(args);
-                print!("All out :{:?}\nNumber of thread: {:?}\nOutput folder: {:?}\nOutput file: {:?}\nInput files{:?}\n", all_out, nbr_threads, out_folder, out_file, in_files);
+                print!("All out: {:?}\nNumber of thread: {:?}\nOutput folder: {:?}\nOutput file: {:?}\nInput files{:?}\n", all_out, nbr_threads, out_folder, out_file, in_files);
 
     //The two working queue
     let (send1, recv1) = multiqueue::mpmc_queue(size_buff as u64);//first buffer
@@ -83,7 +83,7 @@ fn parse_args(args: Vec<String>)  -> (bool, u8, String, String, Vec<String>)
     let mut nbr_threads: u8= 1;
     let mut out_folder: String = ".".to_string();
     let mut in_files: Vec<String> = Vec::new();
-    let mut out_file: String = "".to_string();
+    let out_file: String;
 
     if args.len() < 3 {
         panic!("Not enough arguments given");
