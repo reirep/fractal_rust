@@ -28,7 +28,7 @@ fractal 800 800 0.25 -1.4
 ```program [-d] [--maxthreads n] [-o folder] <input files> <output file>```
 - ```-d``` : If this option is present, write to the disk all the computed fractals
 - ```--maxthreads n``` : This option defines how many "computing" threads will be started. The default is 1.
-- ```-o folder``` : This option definee the output folder. The default is the current folder.
+- ```-o folder``` : This option define the output folder. The default is the current folder.
 - ```<input files>``` : This are all the files the parameters will be read from. The program need at least one. If the program must read from stdin, just put ```-```.
 - ```<output file>``` : This is the output file to where the fractal with the highest mean will be outputted. It's mandatory.
 
